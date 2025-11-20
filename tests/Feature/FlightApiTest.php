@@ -6,6 +6,7 @@ use Tests\TestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use App\Services\BrightDataService;
+use App\Services\ScrapingBeeService;
 use App\Services\FlightService;
 use App\Services\KayakParserService;
 
@@ -102,8 +103,8 @@ class FlightApiTest extends TestCase
      */
     public function test_cache_returns_cached_data_on_second_call(): void
     {
-        // Mock the scraping service
-        $this->mock(BrightDataService::class, function ($mock) {
+        // Mock the scraping service (ScrapingBee is the default provider)
+        $this->mock(ScrapingBeeService::class, function ($mock) {
             $mock->shouldReceive('fetch')
                 ->once() // Should only be called once
                 ->andReturn($this->getSampleKayakHtml());
@@ -134,7 +135,7 @@ class FlightApiTest extends TestCase
      */
     public function test_flights_response_has_correct_structure(): void
     {
-        $this->mock(BrightDataService::class, function ($mock) {
+        $this->mock(ScrapingBeeService::class, function ($mock) {
             $mock->shouldReceive('fetch')
                 ->once()
                 ->andReturn($this->getSampleKayakHtml());

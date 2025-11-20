@@ -1,6 +1,6 @@
 # Scrapifly - API de Scraping de Vuelos (Kayak)
 
-API REST que scrapea la página de resultados de vuelos de Kayak usando Bright Data como proxy, implementa caché de 1 hora y devuelve los datos en formato JSON normalizado.
+API REST que scrapea la página de resultados de vuelos de Kayak usando un proxy de scraping, implementa caché de 1 hora y devuelve los datos en formato JSON normalizado.
 
 ## Requisitos
 
@@ -11,33 +11,38 @@ API REST que scrapea la página de resultados de vuelos de Kayak usando Bright D
 ## Instalación
 
 1. **Clonar el repositorio**
+
 ```bash
-git clone <repository-url>
+git clone https://github.com/Alexpedrasa10/scrapifly.git
 cd scrapifly
 ```
 
 2. **Instalar dependencias**
+
 ```bash
 composer install
 ```
 
 3. **Configurar variables de entorno**
+
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
 4. **Configurar las variables de entorno en `.env`**
+
 ```env
 # Scraping Configuration
-SCRAPING_PROVIDER=brightdata
-BRIGHTDATA_API_KEY=tu_api_key_aqui
+SCRAPING_PROVIDER=scrapingbee
+SCRAPINGBEE_API_KEY=tu_api_key_aqui
 
 # Cache Configuration (en segundos, default 1 hora)
 FLIGHTS_CACHE_TTL=3600
 ```
 
 5. **Limpiar caché de configuración**
+
 ```bash
 php artisan config:clear
 php artisan cache:clear
@@ -46,6 +51,7 @@ php artisan cache:clear
 ## Ejecución
 
 ### Servidor de desarrollo
+
 ```bash
 php artisan serve
 ```
@@ -53,6 +59,7 @@ php artisan serve
 La API estará disponible en `http://localhost:8000`
 
 ### Con Apache/Nginx
+
 Configurar el document root apuntando a la carpeta `public/`
 
 ## Endpoints
@@ -62,17 +69,20 @@ Configurar el document root apuntando a la carpeta `public/`
 Obtiene los vuelos de Kayak para una ruta específica.
 
 **Parámetros (query string):**
+
 - `origin` (requerido): Código IATA del aeropuerto origen (ej: AGP)
 - `destination` (requerido): Código IATA del aeropuerto destino (ej: MAD)
 - `departure_date` (requerido): Fecha de salida en formato YYYY-MM-DD
 - `return_date` (requerido): Fecha de regreso en formato YYYY-MM-DD
 
 **Ejemplo de llamada:**
+
 ```bash
 curl "http://localhost:8000/api/flights?origin=AGP&destination=MAD&departure_date=2026-01-12&return_date=2026-01-15"
 ```
 
 **Respuesta exitosa (200):**
+
 ```json
 {
   "flights": [
@@ -106,6 +116,7 @@ curl "http://localhost:8000/api/flights?origin=AGP&destination=MAD&departure_dat
 ```
 
 **Errores de validación (422):**
+
 ```json
 {
   "error": "Validation failed",
@@ -116,6 +127,7 @@ curl "http://localhost:8000/api/flights?origin=AGP&destination=MAD&departure_dat
 ```
 
 **Error de scraping (502):**
+
 ```json
 {
   "error": "Failed to fetch flight data",
@@ -128,11 +140,13 @@ curl "http://localhost:8000/api/flights?origin=AGP&destination=MAD&departure_dat
 Endpoint de health check para monitoreo.
 
 **Ejemplo:**
+
 ```bash
 curl "http://localhost:8000/api/health"
 ```
 
 **Respuesta:**
+
 ```json
 {
   "status": "ok",
@@ -146,19 +160,42 @@ curl "http://localhost:8000/api/health"
 
 ## Decisiones Técnicas
 
-### Proxy de Scraping: Bright Data
+### Elección del Proxy de Scraping
 
-Se eligió **Bright Data** por las siguientes razones:
+#### Intento inicial: Bright Data
 
-1. **Web Unlocker**: Maneja automáticamente CAPTCHAs, rotación de IPs y fingerprinting del navegador
-2. **Alta tasa de éxito**: Especialmente efectivo para sitios con protecciones anti-bot como Kayak
-3. **API simple**: Integración sencilla mediante API REST
-4. **Documentación completa**: Facilita la implementación y debugging
+Inicialmente se eligió **Bright Data** por las siguientes razones:
+
+1. **Líder del mercado**: Es uno de los proveedores de proxy más reconocidos y robustos
+2. **Proxies residenciales**: Ofrece IPs de usuarios reales, lo cual es ideal para evitar bloqueos
+3. **Web Unlocker**: Producto especializado que maneja automáticamente CAPTCHAs, rotación de IPs y fingerprinting
+4. **Alta tasa de éxito**: Especialmente efectivo para sitios con protecciones anti-bot como Kayak
+5. **Documentación extensa**: Facilita la integración
+
+**Problema encontrado:** Bright Data requiere completar un proceso de KYC (Know Your Customer / verificación de identidad) para acceder a ciertos sitios "sensibles" como Kayak. Esto es una política de compliance de Bright Data para evitar mal uso de sus proxies. El error específico fue:
+
+```
+Residential Failed (bad_endpoint): Requested site is not available for immediate residential
+(no KYC) access mode in accordance with robots.txt.
+```
+
+La configuración de Bright Data se mantiene en el código (`app/Services/BrightDataService.php`) para demostrar la implementación y puede activarse completando el KYC en: https://brightdata.com/cp/kyc
+
+#### Solución final: ScrapingBee
+
+Se migró a **ScrapingBee** como proveedor activo por:
+
+1. **Sin KYC requerido**: Permite acceso inmediato a cualquier sitio con el plan gratuito
+2. **API simple**: Integración sencilla mediante URL con parámetros
+3. **JavaScript rendering**: Ejecuta JavaScript para obtener contenido dinámico
+4. **Premium proxies**: Incluye proxies residenciales en el plan
+5. **Trial gratuito**: 1000 requests sin costo para pruebas
 
 **Configuración utilizada:**
-- Zone: `unblocker` (Web Unlocker)
-- Format: `raw` (HTML sin procesar)
-- Timeout: 60 segundos (configurable)
+
+- `render_js=true`: Renderiza JavaScript (necesario para Kayak)
+- `premium_proxy=true`: Usa proxies residenciales
+- `country_code=us`: Solicita desde Estados Unidos
 
 ### Sistema de Caché
 
@@ -169,11 +206,13 @@ Se utiliza el sistema de **caché de archivos de Laravel** por las siguientes ra
 3. **Suficiente para el caso de uso**: Para una API de bajo volumen, el caché en archivos es adecuado
 
 **Comportamiento del caché:**
+
 - TTL por defecto: 1 hora (3600 segundos)
 - Clave de caché: Hash MD5 de `origin_destination_departure_return`
 - **Caché stale**: Si el scraping falla pero existe caché expirado, se devuelve el caché viejo como fallback
 
 **Para producción con alto volumen**, se recomienda cambiar a Redis:
+
 ```env
 CACHE_STORE=redis
 REDIS_HOST=127.0.0.1
@@ -183,11 +222,13 @@ REDIS_PORT=6379
 ### Manejo de Errores
 
 **Estrategia cuando el scraping falla:**
+
 1. Primero intenta obtener datos frescos de Kayak
 2. Si falla y existe caché stale (expirado pero guardado), devuelve el caché viejo
 3. Si no hay caché de ningún tipo, devuelve error 502 (Bad Gateway)
 
 **Códigos HTTP utilizados:**
+
 - `200`: Éxito
 - `422`: Error de validación de parámetros
 - `500`: Error interno del servidor
@@ -195,30 +236,44 @@ REDIS_PORT=6379
 
 ### Parsing del HTML
 
-El parser intenta múltiples estrategias:
+Kayak utiliza clases CSS ofuscadas y contenido dinámico, lo que hace el parsing desafiante. El parser implementa múltiples estrategias:
 
-1. **JSON embebido**: Busca datos de vuelos en `__NEXT_DATA__` o similar
-2. **DOM parsing**: Usa XPath para extraer datos de elementos HTML
-3. **Regex fallback**: Como último recurso, extrae precios con expresiones regulares
+1. **Extracción de precios**: Busca patrones `$XXX` y filtra valores razonables ($30-$2000)
+2. **Extracción de horarios**: Busca patrones `HH:MM` y construye fechas ISO 8601
+3. **Extracción de duraciones**: Busca patrones `Xh Ym` y calcula minutos totales
+4. **Extracción de aerolíneas**: Busca nombres conocidos (Air Europa, Iberia, Vueling, Ryanair, EasyJet)
+5. **Extracción de escalas**: Busca "nonstop" o "X stop"
 
-**Limitaciones conocidas:**
-- Kayak cambia frecuentemente su estructura HTML
-- Algunos campos pueden quedar en `null` si no se encuentran
-- El número de vuelo (`flightNumber`) generalmente no está disponible en la página de resultados
+**Campos del JSON:**
+
+| Campo | Fuente | Notas |
+|-------|--------|-------|
+| `price` | Extraído del HTML | Precios reales de Kayak |
+| `currency` | Fijo | USD (moneda por defecto de Kayak) |
+| `origin/destination` | Parámetros de entrada | Incluye código IATA y nombre de ciudad |
+| `departure/arrival` | Extraído o calculado | Horarios en ISO 8601, calculados si no se encuentran |
+| `durationInMinutes` | Extraído o calculado | Basado en horarios de salida/llegada |
+| `stopCount` | Extraído del HTML | 0 para vuelos directos |
+| `flightNumber` | null | No disponible en la página de resultados de Kayak |
+| `marketingCarrier` | Extraído del HTML | Código IATA y nombre de la aerolínea |
+| `operatingCarrier` | Igual que marketing | Kayak no distingue en resultados |
 
 ## Tests
 
 Ejecutar todos los tests:
+
 ```bash
 php artisan test
 ```
 
 Ejecutar solo tests de la API de vuelos:
+
 ```bash
 php artisan test --filter=FlightApiTest
 ```
 
 **Tests incluidos:**
+
 - Estructura correcta del endpoint `/health`
 - Validación de parámetros requeridos
 - Validación de formato de fechas
@@ -231,25 +286,45 @@ php artisan test --filter=FlightApiTest
 ```
 app/
 ├── Exceptions/
-│   └── ScrapingException.php      # Excepción personalizada para errores de scraping
+│   └── ScrapingException.php          # Excepción personalizada para errores de scraping
 ├── Http/
 │   └── Controllers/
 │       └── Api/
 │           └── FlightController.php   # Controlador de la API
 └── Services/
-    ├── BrightDataService.php      # Servicio de proxy Bright Data
-    ├── FlightService.php          # Servicio principal con lógica de caché
-    └── KayakParserService.php     # Parser del HTML de Kayak
+    ├── BrightDataService.php          # Servicio de proxy Bright Data (requiere KYC)
+    ├── ScrapingBeeService.php         # Servicio de proxy ScrapingBee (activo)
+    ├── FlightService.php              # Servicio principal con lógica de caché
+    └── KayakParserService.php         # Parser del HTML de Kayak
 
 config/
-└── scraping.php                   # Configuración de scraping y caché
+└── scraping.php                       # Configuración de scraping y caché
 
 routes/
-└── api.php                        # Rutas de la API
+└── api.php                            # Rutas de la API
 
 tests/
 └── Feature/
-    └── FlightApiTest.php          # Tests de la API
+    └── FlightApiTest.php              # Tests de la API
+```
+
+## Configuración de Proveedores
+
+### Cambiar entre proveedores
+
+En el archivo `.env`, cambiar `SCRAPING_PROVIDER`:
+
+```env
+# Para usar ScrapingBee (default, no requiere KYC)
+SCRAPING_PROVIDER=scrapingbee
+SCRAPINGBEE_API_KEY=tu_api_key
+
+# Para usar Bright Data (requiere KYC completado)
+SCRAPING_PROVIDER=brightdata
+BRIGHTDATA_PROXY_HOST=brd.superproxy.io
+BRIGHTDATA_PROXY_PORT=33335
+BRIGHTDATA_PROXY_USER=tu_usuario
+BRIGHTDATA_PROXY_PASS=tu_password
 ```
 
 ## Limitaciones Conocidas
@@ -258,24 +333,25 @@ tests/
 
 2. **Cambios en Kayak**: Si Kayak cambia su estructura HTML, el parser necesitará actualizaciones.
 
-3. **Campos incompletos**: Algunos campos pueden ser `null` debido a:
-   - Información no disponible en la página
-   - Cambios en la estructura HTML de Kayak
-   - Bloqueos del proxy
+3. **`flightNumber` siempre null**: Kayak no muestra números de vuelo en la página de resultados de búsqueda.
 
-4. **Tiempos de respuesta**: El scraping puede tardar 10-30 segundos en la primera llamada (sin caché).
+4. **Horarios estimados**: Cuando no se pueden extraer horarios exactos del HTML, se generan horarios realistas basados en el índice del vuelo.
 
-5. **Zonas horarias**: Las horas de vuelo se devuelven tal como aparecen en Kayak (hora local del aeropuerto).
+5. **Tiempos de respuesta**: El scraping con JavaScript rendering puede tardar 10-30 segundos en la primera llamada (sin caché).
+
+6. **Zonas horarias**: Las horas de vuelo se devuelven tal como aparecen en Kayak (hora local del aeropuerto).
+
+7. **Bright Data KYC**: Para usar Bright Data con Kayak, es necesario completar la verificación de identidad.
 
 ## Mejoras Futuras
 
 - [ ] Implementar queue para scraping asíncrono
-- [ ] Agregar más proveedores de proxy (ScrapingBee como fallback)
+- [ ] Agregar fallback automático entre proveedores
 - [ ] Implementar rate limiting en la API
 - [ ] Agregar autenticación para el endpoint
 - [ ] Dashboard de monitoreo con métricas de caché hits/misses
 - [ ] Soporte para búsqueda de solo ida
+- [ ] Mejorar parsing con selectores CSS específicos de Kayak
 
 ## Autor
-
-Test técnico - API de Scraping de Vuelos
+Alex Pedrasa

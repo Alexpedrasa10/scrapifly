@@ -8,17 +8,25 @@ use App\Exceptions\ScrapingException;
 
 class FlightService
 {
-    private BrightDataService $scraper;
+    private $scraper;
     private KayakParserService $parser;
     private int $cacheTtl;
     private string $cachePrefix;
 
-    public function __construct(BrightDataService $scraper, KayakParserService $parser)
+    public function __construct(KayakParserService $parser)
     {
-        $this->scraper = $scraper;
         $this->parser = $parser;
         $this->cacheTtl = config('scraping.cache.ttl', 3600);
         $this->cachePrefix = config('scraping.cache.prefix', 'flights_');
+
+        // Select scraper based on configuration
+        $provider = config('scraping.provider', 'scrapingbee');
+
+        if ($provider === 'scrapingbee') {
+            $this->scraper = app(ScrapingBeeService::class);
+        } else {
+            $this->scraper = app(BrightDataService::class);
+        }
     }
 
     /**

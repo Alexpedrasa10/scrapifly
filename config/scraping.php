@@ -7,11 +7,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configure the scraping proxy provider to use for fetching flight data.
-    | Supported: "brightdata"
+    | Supported: "scrapingbee"
     |
     */
 
-    'provider' => env('SCRAPING_PROVIDER', 'brightdata'),
+    'provider' => env('SCRAPING_PROVIDER', 'scrapingbee'),
 
     /*
     |--------------------------------------------------------------------------
@@ -25,6 +25,18 @@ return [
         'proxy_user' => env('BRIGHTDATA_PROXY_USER'),
         'proxy_pass' => env('BRIGHTDATA_PROXY_PASS'),
         'timeout' => env('BRIGHTDATA_TIMEOUT', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | ScrapingBee Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'scrapingbee' => [
+        'api_key' => env('SCRAPINGBEE_API_KEY'),
+        'base_url' => 'https://app.scrapingbee.com/api/v1',
+        'timeout' => env('SCRAPINGBEE_TIMEOUT', 60),
     ],
 
     /*

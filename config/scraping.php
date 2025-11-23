@@ -24,7 +24,8 @@ return [
         'proxy_port' => env('BRIGHTDATA_PROXY_PORT', 33335),
         'proxy_user' => env('BRIGHTDATA_PROXY_USER'),
         'proxy_pass' => env('BRIGHTDATA_PROXY_PASS'),
-        'timeout' => env('BRIGHTDATA_TIMEOUT', 60),
+        // Increased timeout for JavaScript-heavy sites
+        'timeout' => env('BRIGHTDATA_TIMEOUT', 90),
     ],
 
     /*

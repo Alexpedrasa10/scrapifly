@@ -39,24 +39,43 @@ class BrightDataService
         try {
             Log::info('BrightData: Fetching URL', ['url' => $url]);
 
+            // Generate a consistent session ID for Kayak
+            // This helps maintain cookies and avoid repeated CAPTCHAs
+            $sessionId = md5($url);
+
+            // Build proxy string with session support and residential IPs
+            // Format: username-session-{id}-country-us:password@host:port
+            $proxyUser = sprintf(
+                '%s-session-%s-country-us',
+                $this->proxyUser,
+                $sessionId
+            );
+
+            Log::info('BrightData: Using session', ['session_id' => $sessionId]);
+
             $response = Http::timeout($this->timeout)
                 ->withOptions([
                     'proxy' => sprintf(
                         'http://%s:%s@%s:%d',
-                        urlencode($this->proxyUser),
+                        urlencode($proxyUser),
                         urlencode($this->proxyPass),
                         $this->proxyHost,
                         $this->proxyPort
                     ),
                     'verify' => false,
+                    // Allow redirects
+                    'allow_redirects' => true,
                 ])
                 ->withHeaders([
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                     'Accept-Language' => 'en-US,en;q=0.5',
-                    'Accept-Encoding' => 'gzip, deflate',
+                    'Accept-Encoding' => 'gzip, deflate, br',
                     'Connection' => 'keep-alive',
                     'Upgrade-Insecure-Requests' => '1',
+                    'Sec-Fetch-Dest' => 'document',
+                    'Sec-Fetch-Mode' => 'navigate',
+                    'Sec-Fetch-Site' => 'none',
                 ])
                 ->get($url);
 
@@ -79,6 +98,8 @@ class BrightDataService
 
             Log::info('BrightData: Successfully fetched content', [
                 'content_length' => strlen($html),
+                'contains_nrc6' => strpos($html, 'nrc6') !== false,
+                'contains_flight_data' => strpos($html, 'flight') !== false,
             ]);
 
             return $html;

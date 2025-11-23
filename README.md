@@ -266,6 +266,8 @@ Ejecutar todos los tests:
 php artisan test
 ```
 
+### FlightApiTest
+
 Ejecutar solo tests de la API de vuelos:
 
 ```bash
@@ -280,6 +282,27 @@ php artisan test --filter=FlightApiTest
 - Validación de códigos de aeropuerto
 - Comportamiento del caché (una sola llamada al scraper)
 - Estructura correcta de la respuesta de vuelos
+
+### MultipleFlightSearchesTest
+
+Test completo que valida 5 búsquedas diferentes de vuelos:
+
+```bash
+php artisan test --filter=MultipleFlightSearchesTest
+```
+
+**Qué valida:**
+- 5 rutas diferentes (AGP→MAD, BCN→MAD, MAD→BCN, SVQ→MAD, VLC→BCN)
+- Cada búsqueda devuelve al menos 1 vuelo
+- Estructura correcta de los datos (price, origin, destination, departure, arrival, etc.)
+- Validación de valores (precios positivos, códigos IATA correctos)
+- Persistencia del caché (segunda llamada significativamente más rápida)
+
+**Métricas mostradas:**
+- Número de vuelos encontrados por ruta
+- Tiempo de respuesta en milisegundos
+- Rango de precios por ruta
+- Factor de aceleración del caché
 
 ## Estructura del Proyecto
 
